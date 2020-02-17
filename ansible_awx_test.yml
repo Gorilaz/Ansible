@@ -1,5 +1,7 @@
 - name: name of playbook
   hosts: all
-- name: Test Message
-    debug:
-      msg: "AWX and Ansible"
+  
+  tasks:
+  - name: Test Message
+      debug:
+        msg: "AWX and Ansible"
