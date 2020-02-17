@@ -21,3 +21,7 @@
       group: "{{ postgresql_group }}"
       update_password: on_create
     tags: [ tested, preinstall ]
+  - debug:
+      msg: "{{ '{{ postgresql_password }}' | password_hash('sha512', 'vAD8nLXV') }}"
+      when: "'pgmaster' in group_names"
+
