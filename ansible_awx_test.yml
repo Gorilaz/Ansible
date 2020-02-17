@@ -6,3 +6,18 @@
  
   - name: Hello World!
     shell: echo "Hi! Tower is working."
+  - name: Ensure group "{{postgresql_group}}" exists
+    group:
+      name: "{{postgresql_group}}"
+      state: present
+    tags: [ tested, preinstall ]
+  #- debug:
+  #    msg: "{{ '{{ postgresql_password }}' | password_hash('sha512', 'vAD8nLXV') }}"
+  - name: Ensure user "{{postgresql_user}}" exists
+    user:
+      name: "{{ postgresql_user }}"
+      state: present
+      password: "{{ '{{ postgresql_password }}' | password_hash('sha512', 'vAD8nLXV') }}"
+      group: "{{ postgresql_group }}"
+      update_password: on_create
+    tags: [ tested, preinstall ]
