@@ -1,7 +1,8 @@
-- name: name of playbook
+---
+- name: Hello World!
   hosts: all
-  
+ 
   tasks:
-  - name: Test Message
-      debug:
-        msg: "AWX and Ansible"
+ 
+  - name: Hello World!
+    shell: echo "Hi! Tower is working."
