@@ -1,0 +1,13 @@
+- name: Gather all facts
+  gather_facts: false
+  hosts: all
+  tasks:
+    - setup:
+      tags: configure   
+- hosts: pgdrcluster 
+  gather_facts: false
+  roles:
+    - postgres
+    #- logrotate
+    #- pgbouncer
+    #- repmgr
