@@ -22,8 +22,10 @@
   tags: [ tested, preinstall ]
 
 - name: Install PostgreSQL+standart packages
-  yum: name=['postgresql11.x86_64', 'pgbouncer.x86_64', 'pgbackrest.x86_64', 'repmgr11.x86_64', 'pg_cron_11', 
-'pgcenter'] update_cache=true state=installed
+  yum: 
+    name: ['postgresql11.x86_64', 'pgbouncer.x86_64', 'pgbackrest.x86_64', 'repmgr11.x86_64', 'pg_cron_11', 'pgcenter'] 
+    update_cache: true 
+    state: installed
   tags: [ tested, install ]
 
 - name: configure postgresql-11.service
