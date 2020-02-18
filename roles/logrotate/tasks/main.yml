@@ -1,0 +1,14 @@
+- name: Makes pglogrotate.cfg
+  template: src=template/pglogrotate.cfg dest=/home/postgres/logrotate.cfg mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }} mode=750
+#  template: 
+#    src:templates/pglogrotate.cfg 
+#    dest:/etc/logrotate.d/pglogrotate.cfg 
+##    owner:root 
+#    group:root
+  tags: configure
+- name: Creates a cron job for logrotate
+  cron:
+    name: logrotate postgres log
+    minute: "0"
+    user: postgres
+    job: "/usr/sbin/logrotate -f /home/postgres/logrotate.cfg --state /home/postgres/logrotate-state"

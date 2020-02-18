@@ -1,0 +1,134 @@
+#/etc/ansible/roles/repmgr/tasks/main.yml
+- name: Makes repmgr.conf
+  template: src=repmgr.conf dest=/etc/repmgr.conf mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }} 
+  #tags: [ tested ]
+- name: Makes repmgr.conf
+  file: 
+    path: /etc/repmgr/11/repmgr.conf
+    state: absent
+  #tags: [ tested ]  
+#- name: Clear PGDATA on slaves
+#  file:
+#    state: absent
+#    path: "{{ postgresql_pgdata }}/"
+#  when: "'pgslave' in group_names"  
+- name: Clear PGDATA on slaves
+  find:
+    paths: "{{ postgresql_pgdata }}/"
+    file_type: any
+    hidden: True
+    recurse: True
+  register: files_to_delete
+  when: "'pgslave' in group_names"
+  tags: [ tested ]
+
+- name: Clear PGDATA on slaves
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items: "{{ files_to_delete.files }}"
+  when: "'pgslave' in group_names"    
+  tags: [ tested ]
+    
+- name: "Wipe clean {{ postgresql_pgdata }} with empty folder hack."
+  synchronize:
+    mode: push
+    #note the backslash here
+    src: "/etc/ansible/roles/postgres/emptydir/" #local dir for ansible server
+    dest: "{{ postgresql_pgdata }}"
+    recursive: yes
+    delete: yes
+  when: "'pgslave' in group_names"
+  #tags: [ tested, install ]
+  #delegate_to: "{{ inventory_hostname }}"  
+
+- name: Ensure PGDATA exists
+  file: path="{{ postgresql_pgdata }}/" owner={{ postgresql_user }} group={{ postgresql_group }} state=directory recurse=yes
+  #tags: [ tested ]
+
+- debug:
+    msg: sudo -iu {{ postgresql_user }} repmgr -h {{ hostvars[groups['pgmaster'][0]]['ansible_all_ipv4_addresses']|first }} --port=6543 -U repmgr -d repmgr -D {{ postgresql_pgdata }} -f /etc/repmgr.conf standby clone
+  tags: [ tested ]
+  #sudo -iu "{{ postgresql_user }}"
+
+- name: Connect to {{ postgresql_user }} database, create repmgr user
+  postgresql_user:
+    db: "{{ postgresql_user }}"
+    name: repmgr
+    port: "{{ postgresql_port }}"
+  when: "'pgmaster' in group_names"   
+
+- name: Create repmgr database
+  postgresql_db:
+    name: repmgr
+    port: "{{ postgresql_port }}"
+    owner: repmgr
+  when: "'pgmaster' in group_names"
+
+- name: repmgr primary register
+  shell: . ~/.bash_profile && repmgr primary register --force
+  when: "'pgmaster' in group_names"
+  #tags: [ tested ]
+  become: yes
+  become_user: "{{ postgresql_user }}"
+  
+- name: Clone database from primary server
+  #command: . ~/.bash_profile && repmgr -h "{{ hostvars[groups['pgmaster'][0]]['ansible_all_ipv4_addresses']|first }}" --port=6543 -U repmgr -d repmgr -D "{{ postgresql_pgdata }}" -f /etc/repmgr.conf standby clone
+  shell: . ~/.bash_profile && repmgr -h "{{ hostvars[groups['pgmaster'][0]]['ansible_all_ipv4_addresses']|first }}" --port=6543 -U repmgr -d repmgr -D "{{ postgresql_pgdata }}" -f /etc/repmgr.conf standby clone
+  when: "'pgslave' in group_names"
+  #tags: [ tested ]
+  become: yes
+  become_user: "{{ postgresql_user }}"
+  register: out
+  #repmgr -h 10.12.94.31 --port=6543 -U repmgr -d repmgr -D /pg_data/11 -f /etc/repmgr.conf standby clone
+
+- name: restart postgresql
+  service: 
+    name: postgresql-11.service 
+    state: restarted    
+  when: "'pgslave' in group_names"
+  
+- name: repmgr standby register
+  shell: . ~/.bash_profile && repmgr standby register --force
+  when: "'pgslave' in group_names"
+  #tags: [ tested ]
+  become: yes
+  become_user: "{{ postgresql_user }}"
+  
+- debug: var=out.stdout_lines
+
+- name: Generate SSH Keypair for all pgdrcluster and save it
+  user:
+    name: "{{ postgresql_user }}"
+    state: present
+    generate_ssh_key: yes
+  delegate_to: "{{ item }}"
+  when: 
+    - inventory_hostname != item
+  tags: [ ssh ]
+  register: source_user
+  with_items:
+    - "{{groups['pgdrcluster']}}"
+ 
+- name: check keys
+  debug: msg="{{ source_user.results | map(attribute='ssh_public_key') | select('defined')| list }}"
+  tags: [ ssh, tested  ]
+    
+# - name: deploy keys on all servers
+  # authorized_key: user={{ postgresql_user }} key="{{ item[0] }}"
+  # delegate_to: "{{ item[1] }}"
+  # when: inventory_hostname != item[1]
+  #with_items:
+  # - "{{ source_user.ssh_public_key }}"
+  # with_nested:
+    # - "{{ source_user.ssh_public_key }}"
+    # - "{{groups['pgdrcluster']}}"
+  # tags: [ ssh ]
+  
+
+- name: Install SSH Public Keys from all hosts in pgdrcluster to each other 
+  authorized_key: user={{ postgresql_user }} key="{{ item }}"
+  when: "'pgdrcluster' in group_names"
+  with_items:
+    - "{{ source_user.results | map(attribute='ssh_public_key') | select('defined')| list }}"
+  tags: [ ssh, tested  ]

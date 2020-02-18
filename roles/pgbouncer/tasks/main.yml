@@ -1,0 +1,12 @@
+- name: Makes pglogrotate.cfg
+  template: src=template/pgbouncer.ini dest=/home/postgres/pgbouncer.ini mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }} mode=750
+#  template: 
+#    src:templates/pglogrotate.cfg 
+#    dest:/etc/logrotate.d/pglogrotate.cfg 
+##    owner:root 
+#    group:root
+  tags: configure
+- name: Runs pgbouncer
+  command: pgbouncer -d pgbouncer.ini
+  become: yes
+  become_user: "{{ postgresql_user }}"
