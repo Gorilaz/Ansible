@@ -40,7 +40,7 @@
     delete: yes
   when: "'pgslave' in group_names"
   #tags: [ tested, install ]
-  #delegate_to: "{{ inventory_hostname }}"  
+  delegate_to: "{{ inventory_hostname }}"  
 
 - name: Ensure PGDATA exists
   file: path="{{ postgresql_pgdata }}/" owner={{ postgresql_user }} group={{ postgresql_group }} state=directory recurse=yes
