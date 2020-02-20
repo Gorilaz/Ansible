@@ -124,7 +124,13 @@
     state: present
     backrefs: yes
     regexp: 'PATH=(["]*)((?!.*?/usr/pgsql-11/bin).*?)(["]*)$'
-    line: 'PATH=\1\2:/usr/pgsql-11/bin\3'  
+    line: 'PATH=\1\2:/usr/pgsql-11/bin\3'
+    
+- name: Start and enable service postgresql-11.service
+  service: 
+    name: postgresql-11.service 
+    state: restarted
+    enabled: yes
   
 - name: Adds pg_cron,pg_stat_statements,pg_buffercache extension to the database postgres
   postgresql_ext:
