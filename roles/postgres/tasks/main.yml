@@ -22,14 +22,14 @@
   tags: [ preinstall ]
 
 #Почему то портит xml в рпмах
-- name: Add yum postgres repository pgdg-redhat-repo-latest.noarch.rpm 
-  yum_repository:
-    name: pgdg-redhat-repo
-    description: pgdg-redhat-repo-latest
-    http_caching: none
-    file: pgdg-redhat-repo
-    baseurl: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm" 
-  tags: [ install ]  
+#- name: Add yum postgres repository pgdg-redhat-repo-latest.noarch.rpm 
+#  yum_repository:
+#    name: pgdg-redhat-repo
+#    description: pgdg-redhat-repo-latest
+#    http_caching: none
+#    file: pgdg-redhat-repo
+#    baseurl: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm" 
+#  tags: [ install ]  
 #- debug: msg="{{ lookup('env','https_proxy') }} is an environment variable"
 #- name: download sources
 #  get_url: 
