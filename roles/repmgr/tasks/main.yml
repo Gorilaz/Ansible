@@ -55,6 +55,7 @@
   postgresql_user:
     db: "{{ postgresql_user }}"
     name: repmgr
+    role_attr_flags: SUPERUSER
     port: "{{ postgresql_port }}"
   when: "'pgmaster' in group_names"   
 
