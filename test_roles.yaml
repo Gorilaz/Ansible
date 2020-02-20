@@ -10,4 +10,4 @@
     - postgres
     #- logrotate
     #- pgbouncer
-    #- repmgr
+    - repmgr
