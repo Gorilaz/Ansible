@@ -7,7 +7,7 @@
 - hosts: pgdrcluster 
   gather_facts: false
   roles:
-    - postgres
+    #- postgres
     #- logrotate
     #- pgbouncer
     - repmgr
