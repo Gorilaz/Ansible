@@ -19,14 +19,43 @@
 - name: Ensure yum  work with proxy(http)
   lineinfile: dest=/etc/yum.conf state=present regexp="{{ http_proxy }}" insertafter=EOF line="proxy={{ http_proxy }}"
   ignore_errors: yes
-  tags: [ tested, preinstall ]
+  tags: [ preinstall ]
+
+#Почему то портит xml в рпмах
+#- name: Add yum postgres repository pgdg-redhat-repo-latest.noarch.rpm 
+#  yum_repository:
+#    name: pgdg-redhat-repo-latest
+#    description: pgdg-redhat-repo-latest
+#    http_caching: none
+#    baseurl: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm" 
+#  tags: [ install ]  
+#- debug: msg="{{ lookup('env','https_proxy') }} is an environment variable"
+#- name: download sources
+#  get_url: 
+#    url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm" 
+#    dest: /etc/yum.repos.d/pgdg-redhat-repo-latest.repo
+  
+- name: "Setting up PostgreSQL repository"
+  yum:
+    name: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+    state: present    
+  tags: [ preinstall ]
 
 - name: Install PostgreSQL+standart packages
   yum: 
-    name: ['postgresql11.x86_64', 'pgbouncer.x86_64', 'pgbackrest.x86_64', 'repmgr11.x86_64', 'pg_cron_11', 'pgcenter'] 
+    name: ['postgresql11.x86_64', 'pgbouncer.x86_64', 'pgbackrest.x86_64', 'repmgr11.x86_64', 'pg_cron_11', 'pgcenter','postgresql11-contrib.x86_64'] 
     update_cache: true 
     state: installed
-  tags: [ tested, install ]
+  tags: [ install ]
+
+- name: Creates directory {{ postgresql_pgdata }}
+  file:
+    path: "{{ postgresql_pgdata }}"
+    owner: "{{ postgresql_user }}"
+    group: "{{ postgresql_group }}"
+    mode: 0750
+    state: directory
+    recurse: yes    
 
 - name: configure postgresql-11.service
   lineinfile: 
@@ -55,9 +84,9 @@
     ansible_ssh_pipelining: true  
   tags: [ tested, install ]
 
-- name: Configure postgresql.conf.
+- name: Configure {{ postgresql_pgdata }}/postgresql.conf.
   lineinfile:
-    dest: "/pg_data/11/postgresql.conf"
+    dest: "{{ postgresql_pgdata }}/postgresql.conf"
     regexp: "^#?{{ item.option }}[^#]*(#?.*)$"
     line: "{{ item.option }} = {{ item.value }} \\1"
     state: "{{ item.state | default('present') }}"
@@ -67,18 +96,17 @@
   notify: restart postgresql
   tags: [ tested, install ]
   
-- name: Configure pg_hba.conf
+- name: Configure {{ postgresql_pgdata }}/pg_hba.conf
   template: src=pg_hba.conf.j2 dest={{ postgresql_pgdata }}/pg_hba.conf mode=0750 owner="{{ postgresql_user }}" group="{{ postgresql_group }}"
   when: "'pgmaster' in group_names"
   notify: restart postgresql
   tags: [ tested, install ]
   
-- name: Configure .bash_profile
+- name: Configure PG* variables in /home/{{ postgresql_user }}/.bash_profile
   lineinfile:
-    dest: "/home/postgres/.bash_profile"
-    regexp: "^#?{{ item.option }}[^#]*(#?.*)$"
-    line: "{{ item.option }}={{ item.value }} \\1"
-    backrefs: yes
+    dest: "/home/{{ postgresql_user }}/.bash_profile"
+    regexp: "^#?{{ item.option }}"
+    line: "{{ item.option }}={{ item.value }} "
     insertafter: EOF
     state: "{{ item.state | default('present') }}"
   with_items: 
@@ -88,6 +116,14 @@
     - {option: export PGUSER, value: "{{ postgresql_user }}"}
     - {option: export PGDATABASE, value: "{{ postgresql_user }}"}
   tags: [ tested, install ]
+
+- name: Add /usr/pgsql-11/bin to PATH
+  lineinfile: 
+    dest: "/home/{{ postgresql_user }}/.bash_profile"
+    state: present
+    backrefs: yes
+    regexp: 'PATH=(["]*)((?!.*?/usr/pgsql-11/bin).*?)(["]*)$'
+    line: 'PATH=\1\2:/usr/pgsql-11/bin\3'  
   
 - name: Adds pg_cron,pg_stat_statements,pg_buffercache extension to the database postgres
   postgresql_ext:
