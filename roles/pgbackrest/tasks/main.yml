@@ -1,0 +1,59 @@
+- name: Ensure /etc/pgbackrest/ exists
+  file: path="/etc/pgbackrest/" owner={{ postgresql_user }} state=directory recurse=yes
+  #tags: [ tested ]
+  
+- name: Makes pgbackrest.conf
+  template: src=pgbackrest.conf dest=/etc/pgbackrest/pgbackrest.conf mode=0640 owner={{ postgresql_user }} #group={{ postgresql_group }} 
+  #tags: [ tested ]
+
+- set_fact: 
+    postgresql_local_config_options :
+      - {option: archive_command, value: "'pgbackrest --stanza={{ groups['pgmaster'][0] }} archive-push %p'"}
+  
+- name: Configure {{ postgresql_pgdata }}/postgresql.conf.
+  lineinfile:
+    dest: "{{ postgresql_pgdata }}/postgresql.conf"
+    regexp: "^#?{{ item.option }}[^#]*(#?.*)$"
+    line: "{{ item.option }} = {{ item.value }} \\1"
+    state: "{{ item.state | default('present') }}"
+    backrefs: yes
+  with_items: "{{ postgresql_local_config_options }}"
+  #when: "'pgmaster' in group_names"
+  #notify: restart postgresql
+  tags: [ tested, install ]  
+  
+- name: Create backrest stanza
+  shell: . ~/.bash_profile && pgbackrest --stanza={{ groups['pgmaster'][0] }} stanza-create
+  become: yes
+  become_user: " {{ postgresql_user }} "
+  when: "'pgmaster' in group_names" 
+
+#- name: Creates directory /home/{{ postgresql_user }}/scripts/
+#  file:
+#    path: "/home/{{ postgresql_user }}/scripts/"
+#    owner: "{{ postgresql_user }}"
+#    group: "{{ postgresql_group }}"
+#    mode: 0750
+#    state: directory
+#    recurse: yes     
+
+- name: Creates directory /home/{{ postgresql_user }}/scripts/logs/
+  file:
+    path: "/home/{{ postgresql_user }}/scripts/logs/"
+    owner: "{{ postgresql_user }}"
+    #group: "{{ postgresql_group }}"
+    mode: 0750
+    state: directory
+    recurse: yes     
+
+- name: Makes backup_full.sh
+  template: src=backup_full.sh dest=/home/{{ postgresql_user }}/scripts/backup_full.sh mode=0750 owner={{ postgresql_user }} #group={{ postgresql_group }}
+    
+
+- name: Creates a cron job for pgbackrest
+  cron:
+    name: pgbackrest
+    minute: "0"
+    hour: "1"
+    user: postgres
+    job: "bash /home/postgres/scripts/backup_full.sh >/home/postgres/scripts/logs/backup_full.log"

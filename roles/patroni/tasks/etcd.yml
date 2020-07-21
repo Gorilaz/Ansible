@@ -1,0 +1,52 @@
+# - name: configure repmgr{{postgresql_version}}.service
+  # lineinfile: 
+    # dest: "/usr/lib/systemd/system/repmgr{{postgresql_version}}.service"
+    # regexp: "^Environment=REPMGRDCONF=.*$" 
+    # line: "Environment=REPMGRDCONF=/etc/repmgr.conf"
+    # state: present
+  # ignore_errors: yes
+  # tags: [ tested, install ]
+  
+# - name: just force systemd to reread configs (2.4 and above)
+  # systemd:
+    # daemon_reload: yes
+    
+# - name: Start and enable service repmgr{{postgresql_version}}.service
+  # service: 
+    # name: repmgr{{postgresql_version}}.service 
+    # state: restarted
+    # enabled: yes
+- name: Ensure yum  work with proxy(http)
+  lineinfile: dest=/etc/yum.conf state=present regexp="{{ http_proxy }}" insertafter=EOF line="proxy={{ http_proxy }}"
+  ignore_errors: yes
+  tags: [ preinstall ]   
+
+- name: Install etcd package
+  yum: 
+    #name: ['postgresql11.x86_64', 'pgbouncer.x86_64', 'pgbackrest.x86_64', 'repmgr11.x86_64', 'pg_cron_11', 'pgcenter', 'postgresql11-contrib.x86_64', 'python2-psycopg2.x86_64'] 
+    name: ['etcd']
+    update_cache: true 
+    state: installed
+  when: skip_host is not defined
+  tags: [ install ]
+    
+- name: Makes /etc/etcd/etcd.conf
+  template: src=etcd.conf.j2 dest=/etc/etcd/etcd.conf #mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }}
+  notify: restart etcd service  
+  when: skip_host is not defined   
+
+- name: Makes etcd systemctl unit
+  template: src=etcd.service.j2 dest=/etc/systemd/system/etcd.service #mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }}
+  notify: restart etcd service  
+  when: skip_host is not defined 
+
+- name: Start and enable service postgresql-{{postgresql_version}}.service
+  service: 
+    name: etcd.service
+    enabled: yes
+  when: 
+    - skip_host is not defined    
+
+- name: just force systemd to reread configs (2.4 and above)
+  systemd:
+    daemon_reload: yes  

@@ -1,0 +1,4 @@
+- name: restart etcd service
+  service: 
+    name: etcd.service 
+    state: restarted    

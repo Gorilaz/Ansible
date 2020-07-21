@@ -1,0 +1,6 @@
+\set inv 'select * from public.dba_inventory';
+{% if test_env is defined %}
+\set PROMPT1 '%[%033[1;32;40m%]%n@%/%R%[%033[0m%]%# '
+{% else %}
+\set PROMPT1 '%[%033[1;31;40m%]%n@%/%R%[%033[0m%]%# '
+{% endif %}

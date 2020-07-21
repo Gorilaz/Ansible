@@ -1,0 +1,48 @@
+- name: Generate SSH Keypair for all pgdrcluster and save it
+  user:
+    name: "{{ postgresql_user }}"
+    state: present
+    generate_ssh_key: yes
+  delegate_to: "{{ item }}"
+  when: 
+    - inventory_hostname != item
+  tags: [ ssh ]
+  register: source_user
+  with_items:
+    - "{{groups['pgdrcluster']}}"
+ 
+#- name: check keys
+#  debug: msg="{{ source_user.results | map(attribute='ssh_public_key') | select('defined')| list }}"
+#  tags: [ ssh, tested  ]
+        
+    # - name: deploy keys on all servers
+      # authorized_key: user={{ postgresql_user }} key="{{ item[0] }}"
+      # delegate_to: "{{ item[1] }}"
+      # when: inventory_hostname != item[1]
+      #with_items:
+      # - "{{ source_user.ssh_public_key }}"
+      # with_nested:
+        # - "{{ source_user.ssh_public_key }}"
+        # - "{{groups['pgdrcluster']}}"
+      # tags: [ ssh ]
+ # - name: Add keys to authorized_keys
+  # blockinfile:
+    # owner: {{ postgresql_user }}
+    # group: {{ postgresql_group }}
+    # mode: '0600'
+    # create: yes
+    # path: "/home/{{ postgresql_user }}/.ssh/authorized_keys"
+    # block: |
+      # line if text
+      # other line
+      # more lines      
+     
+
+- name: Install SSH Public Keys from all hosts in pgdrcluster to each other 
+  authorized_key: user={{ postgresql_user }} key="{{ item }}"
+  when: 
+  - "'pgdrcluster' in group_names"
+  - skip_host is not defined
+  with_items:
+    - "{{ source_user.results | map(attribute='ssh_public_key') | select('defined')| list }}"
+  tags: [ ssh, tested  ]

@@ -1,0 +1,27 @@
+- name: Install keepalived package
+  yum: 
+    name: ['keepalived']
+    update_cache: true
+    install_weak_deps: true   
+    state: installed
+  when: skip_host is not defined
+  tags: [ install ] 
+  
+- name: Makes /etc/keepalived/keepalived.conf
+  template: src=keepalived.conf.j2 dest=/etc/keepalived/keepalived.conf #mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }}
+  #notify: restart patroni service  
+  when: skip_host is not defined    
+  
+- name: Makes /etc/keepalived/chk_patroni.sh
+  template: src=chk_patroni.sh.j2 dest=/etc/keepalived/chk_patroni.sh mode=0750 #owner={{ postgresql_user }} group={{ postgresql_group }}
+  #notify: restart patroni service  
+  when: skip_host is not defined    
+  
+  
+- name: Start and enable service keepalived.service
+  service: 
+    name: keepalived.service
+    state: restarted
+    enabled: yes
+  when: 
+    - skip_host is not defined   

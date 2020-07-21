@@ -1,0 +1,2 @@
+postgres   ALL=NOPASSWD:/usr/sbin/service postgresql-{{postgresql_version}}.service * ,/usr/sbin/service repmgr{{postgresql_version}}.service *,/usr/sbin/service patroni.service *,/usr/sbin/service keepalived.service *
+

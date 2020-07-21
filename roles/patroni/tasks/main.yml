@@ -1,0 +1,3 @@
+#- include: etcd.yml 
+- include: patroni.yml 
+#- include: keepalived.yml

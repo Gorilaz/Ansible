@@ -1,0 +1,17 @@
+- name: Gather all facts
+  gather_facts: false
+  hosts: all
+  tasks:
+    - setup:
+      tags: configure   
+- hosts: all 
+  gather_facts: false
+  roles:
+    #- postgres
+    - workspace
+    #- pgbouncer
+    #- repmgr
+    #- pgbackrest
+    #- zabbix
+    #- patroni
+    

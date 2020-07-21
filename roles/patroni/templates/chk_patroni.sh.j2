@@ -1,0 +1,2 @@
+#!/bin/bash
+if [ $(curl --write-out %{http_code} --silent --output /dev/null/ http://localhost:8009/standby-leader )  -eq 200 ]; then exit 0; else exit 1 ;fi

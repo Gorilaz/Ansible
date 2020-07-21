@@ -1,0 +1,58 @@
+scope: patroni_cluster_1
+name: {{ansible_hostname}}
+
+restapi:
+  listen: 0.0.0.0:8009
+  connect_address: {{ansible_all_ipv4_addresses|first}}:8009
+  # должны быть уникальными иначе свитчовер не сработает
+
+etcd:
+  #hosts: localhost:2379
+  hosts: {%for host in groups['etcdcluster']%}{{hostvars[host]['ansible_all_ipv4_addresses']|first}}:2379 {% if not loop.last %},{% endif %}{% endfor %} 
+  protocol: http
+# username: etcd
+# password: v4rY$ecRetWrd  
+
+bootstrap: #это для авторазвертывания нового и для распределенной конфигурации
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout : 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters: #Патрони сам их применит в конфиге
+        wal_keep_segments: 50
+
+  initdb:
+#  - encoding: UTF8
+  - data-checksums: true
+
+  pg_hba:
+  - host replication repmgr 0.0.0.0/0 md5
+  - host all all 0.0.0.0/0 md5
+
+postgresql:
+  listen: 0.0.0.0:{{postgresql_port}}
+  #listen: IP address + port that Postgres listens to; must be accessible from other nodes in the cluster, if you’re using streaming replication. Multiple comma-separated addresses are permitted, as long as the port component is appended after to the last one with a colon, i.e. listen: 127.0.0.1,127.0.0.2:5432. Patroni will use the first address from this list to establish local connections to the PostgreSQL node.
+  connect_address: {{ansible_all_ipv4_addresses|first}}:{{postgresql_port}}
+  #connect_address: IP address + port through which Postgres is accessible from other nodes and applications.
+  data_dir: {{ postgresql_pgdata }}
+#  bin_dir: /usr/lib/postgresql/11//bin
+  bin_dir: /usr/pgsql-{{ postgresql_version }}/bin/
+  authentication:
+    replication:
+      username: repmgr
+#      password: repmgrpass
+    superuser:
+      username: {{ postgresql_user }}
+      password: {{postgresql_password}}
+  parameters: #Патрони сам их применит в конфиге
+    wal_keep_segments: 50
+    #synchronous_commit: "on"
+    #synchronous_standby_names: "*"
+#log:
+#   dir: /var/log/postgresql
+#   level: INFO    
+      

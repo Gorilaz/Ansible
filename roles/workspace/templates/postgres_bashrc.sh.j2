@@ -1,0 +1,41 @@
+alias pgstatus='ps -o pid,command --ppid `head -n 1 {{ postgresql_pgdata }}/postmaster.pid`'
+alias pglog='tail -200f /home/{{ postgresql_user }}/postgres_alert.log'
+
+function pgservice()
+{
+  sudo service postgresql-{{ postgresql_version }}.service "$1"
+}
+
+INPUT_COLOR="\[\033[0m\]"
+DIR_COLOR="\[\033[0;33m\]"
+DIR="\w"
+
+LINE_VERTICAL="\342\224\200"
+LINE_CORNER_1="\342\224\214"
+LINE_CORNER_2="\342\224\224"
+LINE_COLOR="\[\033[0;37m\]"
+USER_NAME="\[\033[0;32m\]\u"
+{% if test_env is defined %}
+HOST_NAME="\[\033[0;32m\]@\h:"
+{% else %}
+HOST_NAME="\[\033[0;31m\]@\h:"
+{% endif %}
+
+SYMBOL="\[\033[0;32m\]$"
+if [[ ${EUID} == 0 ]]; then
+    USER_NAME="\[\033[0;31m\]\u"
+    SYMBOL="\[\033[0;31m\]#"
+fi
+
+man() {
+env LESS_TERMCAP_mb=$'\E[01;31m' \
+LESS_TERMCAP_md=$'\E[01;38;5;74m' \
+LESS_TERMCAP_me=$'\E[0m' \
+LESS_TERMCAP_se=$'\E[0m' \
+LESS_TERMCAP_so=$'\E[38;5;246m' \
+LESS_TERMCAP_ue=$'\E[0m' \
+LESS_TERMCAP_us=$'\E[04;38;5;146m' \
+man "$@"
+}
+
+PS1="$LINE_COLOR$LINE_CORNER_1$LINE_VERTICAL $USER_NAME$HOST_NAME \t $DIR_COLOR$DIR \n$LINE_COLOR$LINE_CORNER_2$LINE_VERTICAL $SYMBOL $INPUT_COLOR"

@@ -1,0 +1,14 @@
+- name: Gather all facts
+  gather_facts: false
+  hosts: all
+  tasks:
+    - setup:
+      tags: configure   
+
+    - name: Deploy ansible server auth key to hosts
+      become: true
+      authorized_key:
+        user: root
+        key: "{{ lookup('file', '/root/.ssh/id_rsa.pub') }}"
+        state: present
+        #exclusive: True # Delete all others

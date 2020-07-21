@@ -1,0 +1,30 @@
+- name: Put /etc/profile.d/postgres_bashrc.sh
+  template: src=postgres_bashrc.sh.j2 dest=/etc/profile.d/postgres_bashrc.sh
+  when: 
+    - skip_host is not defined  
+  tags: [ tested]
+  
+- name: "Put /etc/sudoers.d/{{ postgresql_user }}"
+  template: src=../../repmgr/templates/sudoer_postgres dest="/etc/sudoers.d/{{ postgresql_user }}" owner=root group=root
+  #tags: [ tested ]
+
+- name: Put /home/{{ postgresql_user }}/.psqlrc
+  template: src=psqlrc dest="/home/{{ postgresql_user }}/.psqlrc" owner={{ postgresql_user }} group={{ postgresql_user }}
+  when: 
+    - skip_host is not defined  
+  tags: [ tested]
+  
+- name: AdminsSudoNoPasswd = True in /etc/cagfad/cagfad.conf
+  lineinfile:
+    dest: "/etc/cagfad/cagfad.conf"
+    regexp: "^.*AdminsSudoNoPasswd.*"
+    line: "    AdminsSudoNoPasswd = True"
+    state: present
+  ignore_errors: yes
+
+
+- name: Extract zerofile.zip into /pg_data/
+  unarchive:
+    src: zerofile.zip
+    dest: /pg_data/  
+  

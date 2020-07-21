@@ -1,19 +1,23 @@
 #https://stackoverflow.com/questions/25629933/ansible-copy-ssh-key-from-one-host-to-another
 #/etc/ansible/roles/postgres/tasks/main.yml
-- name: Ensure group "{{postgresql_group}}" exists
-  group:
-    name: "{{postgresql_group}}"
-    state: present
-  tags: [ tested, preinstall ]
+
+# - name: Ensure group "{{postgresql_group}}" exists
+  # group:
+    # name: "{{postgresql_group}}"
+    # state: present
+  # tags: [ tested, preinstall ]
+  
 #- debug:
-#    msg: "{{ '{{ postgresql_password }}' | password_hash('sha512', 'vAD8nLXV') }}"
+#    msg: "{{ postgresql_password | password_hash('sha512', '5rfSjPM5') }}"
+
 - name: Ensure user "{{postgresql_user}}" exists
   user:
     name: "{{ postgresql_user }}"
     state: present
-    password: "{{ '{{ postgresql_password }}' | password_hash('sha512', 'vAD8nLXV') }}"
-    group: "{{ postgresql_group }}"
-    update_password: on_create
+    password: "{{ postgresql_password | password_hash('sha512', '5rfSjPM5') }}"
+    #group: "{{ postgresql_group }}"
+    #update_password: on_create
+    update_password: always
   tags: [ tested, preinstall ]
 
 - name: Ensure yum  work with proxy(http)
@@ -44,27 +48,30 @@
 
 - name: Install PostgreSQL+standart packages
   yum: 
-    name: ['postgresql11.x86_64', 'pgbouncer.x86_64', 'pgbackrest.x86_64', 'repmgr11.x86_64', 'pg_cron_11', 'pgcenter','postgresql11-contrib.x86_64'] 
+    #name: ['postgresql11.x86_64', 'pgbouncer.x86_64', 'pgbackrest.x86_64', 'repmgr11.x86_64', 'pg_cron_11', 'pgcenter', 'postgresql11-contrib.x86_64', 'python2-psycopg2.x86_64'] 
+    name: "{{postgresql_packages}}"
     update_cache: true 
     state: installed
+  when: skip_host is not defined
   tags: [ install ]
 
 - name: Creates directory {{ postgresql_pgdata }}
   file:
     path: "{{ postgresql_pgdata }}"
     owner: "{{ postgresql_user }}"
-    group: "{{ postgresql_group }}"
-    mode: 0750
+#    group: "{{ postgresql_group }}"
+    mode: 0700
     state: directory
     recurse: yes    
 
-- name: configure postgresql-11.service
+- name: configure postgresql-{{postgresql_version}}.service
   lineinfile: 
-    dest: "/usr/lib/systemd/system/postgresql-11.service"
+    dest: "/usr/lib/systemd/system/postgresql-{{postgresql_version}}.service"
     regexp: "^Environment=PGDATA=.*$" 
     line: "Environment=PGDATA={{ postgresql_pgdata }}"
     state: present
   ignore_errors: yes
+  when: skip_host is not defined  
   tags: [ tested, install ]
 
 - name: Check if PostgreSQL database is initialized on pgmaster group.
@@ -75,16 +82,24 @@
   tags: [ tested, install ]
   
 - name: Ensure PostgreSQL database is initialized on pgmaster group.
-  command: "/usr/pgsql-11/bin/initdb -k -D {{ postgresql_pgdata }}"
+  command: "/usr/pgsql-{{postgresql_version}}/bin/initdb -k -D {{ postgresql_pgdata }}"
   when: 
     - not pgdata_dir_version.stat.exists
     - "'pgmaster' in group_names"
+    - skip_host is not defined
   become: true
   become_user: "{{ postgresql_user }}"
   vars:
     ansible_ssh_pipelining: true  
   tags: [ tested, install ]
 
+- name: Check if {{ postgresql_pgdata }}/postgresql.conf exists.
+  stat:
+    path: "{{ postgresql_pgdata }}/postgresql.conf"
+  register: pgconf_file
+  #when: "'pgmaster' in group_names"
+  tags: [ tested, install ]
+  
 - name: Configure {{ postgresql_pgdata }}/postgresql.conf.
   lineinfile:
     dest: "{{ postgresql_pgdata }}/postgresql.conf"
@@ -92,24 +107,31 @@
     line: "{{ item.option }} = {{ item.value }} \\1"
     state: "{{ item.state | default('present') }}"
     backrefs: yes
+  when: 
+    - pgconf_file.stat.exists
+    - skip_host is not defined  
   with_items: "{{ postgresql_global_config_options }}"
-  when: "'pgmaster' in group_names"
+  #when: "'pgmaster' in group_names"
   notify: restart postgresql
   tags: [ tested, install ]
   
 - name: Configure {{ postgresql_pgdata }}/pg_hba.conf
-  template: src=pg_hba.conf.j2 dest={{ postgresql_pgdata }}/pg_hba.conf mode=0750 owner="{{ postgresql_user }}" group="{{ postgresql_group }}"
-  when: "'pgmaster' in group_names"
+  template: src=pg_hba.conf.j2 dest={{ postgresql_pgdata }}/pg_hba.conf mode=0750 owner="{{ postgresql_user }}" #group="{{ postgresql_group }}"
+  when: 
+    - pgconf_file.stat.exists #для того чтобы можно было клонировать
+    - skip_host is not defined  
+  #when: "'pgmaster' in group_names"
   notify: restart postgresql
   tags: [ tested, install ]
   
 - name: Configure PG* variables in /home/{{ postgresql_user }}/.bash_profile
   lineinfile:
     dest: "/home/{{ postgresql_user }}/.bash_profile"
-    regexp: "^#?{{ item.option }}"
+    regexp: "^#?{{ item.option }}="
     line: "{{ item.option }}={{ item.value }} "
     insertafter: EOF
     state: "{{ item.state | default('present') }}"
+  when: skip_host is not defined    
   with_items: 
     - {option: export PGHOST, value: "localhost"}
     - {option: export PGDATA, value: "{{ postgresql_pgdata }}"}
@@ -118,19 +140,27 @@
     - {option: export PGDATABASE, value: "{{ postgresql_user }}"}
   tags: [ tested, install ]
 
-- name: Add /usr/pgsql-11/bin to PATH
+- name: Add /usr/pgsql-{{postgresql_version}}/bin to PATH
   lineinfile: 
     dest: "/home/{{ postgresql_user }}/.bash_profile"
     state: present
     backrefs: yes
-    regexp: 'PATH=(["]*)((?!.*?/usr/pgsql-11/bin).*?)(["]*)$'
-    line: 'PATH=\1\2:/usr/pgsql-11/bin\3'
+    regexp: 'PATH=(["]*)((?!.*?/usr/pgsql-{{postgresql_version}}/bin).*?)(["]*)$'
+    line: 'PATH=\1\2:/usr/pgsql-{{postgresql_version}}/bin\3'
+  when: skip_host is not defined
+  
+- name: just force systemd to reread configs (2.4 and above)
+  systemd:
+    daemon_reload: yes
     
-- name: Start and enable service postgresql-11.service
+- name: Start and enable service postgresql-{{postgresql_version}}.service
   service: 
-    name: postgresql-11.service 
+    name: postgresql-{{postgresql_version}}.service 
     state: restarted
     enabled: yes
+  when: 
+    - "'pgmaster' in group_names"
+    - skip_host is not defined  
   
 - name: Adds pg_cron,pg_stat_statements,pg_buffercache extension to the database postgres
   postgresql_ext:

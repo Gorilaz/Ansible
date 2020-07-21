@@ -1,0 +1,7 @@
+tasks:
+  - name: Makes pglogrotate.cfg
+    template: src=templates/pglogrotate.cfg 
+    dest:/etc/logrotate.d/pglogrotate.cfg 
+    owner:root 
+    group:root
+    tags: configure

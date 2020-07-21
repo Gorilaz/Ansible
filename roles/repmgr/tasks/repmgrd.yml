@@ -1,0 +1,20 @@
+- name: configure repmgr{{postgresql_version | replace('.', '')}}.service
+  lineinfile: 
+    dest: "/usr/lib/systemd/system/repmgr{{postgresql_version | replace('.', '')}}.service"
+    regexp: "^Environment=REPMGRDCONF=.*$" 
+    line: "Environment=REPMGRDCONF=/etc/repmgr.conf"
+    state: present
+  ignore_errors: yes
+  tags: [ tested, install ]
+  
+- name: just force systemd to reread configs (2.4 and above)
+  systemd:
+    daemon_reload: yes
+    
+- name: Start and enable service repmgr{{postgresql_version | replace('.', '')}}.service
+  service: 
+    name: repmgr{{postgresql_version | replace('.', '')}}.service 
+    state: restarted
+    enabled: yes
+  ignore_errors: yes    
+    

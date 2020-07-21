@@ -1,12 +1,63 @@
-- name: Makes pglogrotate.cfg
-  template: src=template/pgbouncer.ini dest=/home/postgres/pgbouncer.ini mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }} mode=750
+#/etc/ansible/roles/pgbouncer/tasks/main.yml
+- name: Makes pgbouncer.ini from template
+  template: src=template/pgbouncer.ini dest=/home/{{ postgresql_user }}/pgbouncer.ini mode=0750 owner={{ postgresql_user }} group={{ postgresql_group }} mode=750
 #  template: 
 #    src:templates/pglogrotate.cfg 
 #    dest:/etc/logrotate.d/pglogrotate.cfg 
 ##    owner:root 
 #    group:root
   tags: configure
-- name: Runs pgbouncer
-  command: pgbouncer -d pgbouncer.ini
+
+
+- set_fact: 
+    pgbouncer_local_config_options :
+      - {option: User, value: "{{ postgresql_user }}"}
+      - {option: Group, value: "{{ postgresql_group }}"}
+      - {option: Environment=BOUNCERCONF, value: "/home/{{ postgresql_user }}/pgbouncer.ini"}
+  
+- name: Configure /usr/lib/systemd/system/pgbouncer.service
+  lineinfile:
+    dest: "/usr/lib/systemd/system/pgbouncer.service"
+    regexp: "^#?{{ item.option }}[^#]*(#?.*)$"
+    line: "{{ item.option }}={{ item.value }} \\1"
+    state: "{{ item.state | default('present') }}"
+    backrefs: yes
+  with_items: "{{ pgbouncer_local_config_options }}"
+  tags: [ tested, install ]  
+
+#Правильно было бы сделать через хэндлер
+- name: just force systemd to reread configs (2.4 and above)
+  systemd:
+    daemon_reload: yes
+
+#- name: configure pgbouncer.service
+#  lineinfile: 
+#    dest: "/usr/lib/systemd/system/pgbouncer.service"
+#    regexp: "^Environment=BOUNCERCONF=.*$" 
+#    line: "Environment=BOUNCERCONF=/home/{{ postgresql_user }}/pgbouncer.ini"
+#    state: present
+#  ignore_errors: yes
+#  tags: [ tested, install ]
+
+- name: chmod +X /etc/pgbouncer/mkauth.py
+  file:
+    path: /etc/pgbouncer/mkauth.py
+    owner: "{{ postgresql_user }}"
+    group: "{{ postgresql_group }}"
+    mode: '0755'
+    
+#./mkauth.py "/home/{{ postgresql_user }}/users.txt" "dbname='{{ postgresql_user }}' user='{{ postgresql_user }}' host='localhost' port={{ postgresql_port }}"
+- name: Runs mkauth.py
+  #command: . ~/.bash_profile && repmgr -h "{{ hostvars[groups['pgmaster'][0]]['ansible_all_ipv4_addresses']|first }}" --port=6543 -U repmgr -d repmgr -D "{{ postgresql_pgdata }}" -f /etc/repmgr.conf standby clone
+  shell: . ~/.bash_profile && /etc/pgbouncer/mkauth.py "/home/{{ postgresql_user }}/users.txt" "dbname='{{ postgresql_user }}' user='{{ postgresql_user }}' host='localhost' port={{ postgresql_port }}"
+  #tags: [ tested ]
   become: yes
   become_user: "{{ postgresql_user }}"
+
+
+- name: Start and enable service pgbouncer.service
+  service: 
+    name: pgbouncer.service 
+    state: started
+    enabled: yes
+

@@ -1,0 +1,26 @@
+#/etc/ansible/roles/zabbix/tasks/main.yml
+- name: Makes from template /etc/zabbix/zabbix_agentd.d/postgres.conf
+  copy: src=/etc/ansible/roles/zabbix/templates/postgres.conf dest=/etc/zabbix/zabbix_agentd.d/postgres.conf owner=root group=root
+  notify: restart zabbix-agent
+
+# - name: Makes from template /etc/zabbix/zabbix_agentd.d/userparameter.conf
+  # copy: src=/etc/ansible/roles/zabbix/templates/userparameter.conf dest=/etc/zabbix/zabbix_agentd.d/userparameter.conf owner=root group=root
+  # notify: restart zabbix-agent
+  # #tags: [ tested ]
+
+# - name: Configure include in /etc/zabbix/zabbix_agentd.conf
+  # lineinfile: dest=/etc/zabbix/zabbix_agentd.conf state=present regexp="Include=/etc/zabbix/zabbix_agentd.d/*.conf" insertafter=EOF line="Include=/etc/zabbix/zabbix_agentd.d/postgres.conf"
+  # notify: restart zabbix-agent
+  # ignore_errors: yes
+  # #tags: [ preinstall ]  
+  
+# - name: Create function to check pgbackrest backups
+  # postgresql_query:
+    # db: {{ postgresql_user }}
+    # login_user: {{ postgresql_user }}
+    # login_password: {{ postgresql_password }}
+    # query: SELECT version();
+    # autocommit: yes
+#Include=/etc/zabbix/zabbix_agentd.d/*.conf
+#Include=/etc/zabbix/zabbix_agentd.d/postgres.conf
+#/bin/systemctl restart zabbix-agent.service

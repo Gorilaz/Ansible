@@ -1,0 +1,12 @@
+- name: Gather all facts
+  gather_facts: false
+  hosts: all
+  tasks:
+    - setup:
+      tags: configure   
+
+- hosts: pgdrcluster
+  gather_facts: false
+  tasks:
+    - include: ./roles/repmgr/tasks/exchange_ssh_keys.yml  
+      when: skip_host is not defined 
